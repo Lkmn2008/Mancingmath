@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Petualangan Memancing Cerdas 🎣</title>
+<style>
+  /* -------------------------
+     Tema & dasar layout
+     ------------------------- */
+  :root{
+    --bg-top: #c9f0ff;
+    --bg-bottom: #79d0f6;
+    --accent: #0288d1;
+    --panel: rgba(255,255,255,0.95);
+    --btn: #ffd54f;
+    --muted: #6aa7b8;
+    --text: #013348;
+  }
+  * { box-sizing: border-box; }
+  html,body { height:100%; margin:0; font-family: "Comic Sans MS", "Segoe UI", Roboto, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
+  body { background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)); color: var(--text); overflow: hidden; }
+
+  #app {
+    max-width: 1200px; margin: 12px auto; padding: 12px;
+  }
+
+  .card { background: var(--panel); border-radius: 14px; padding: 18px; box-shadow: 0 10px 30px rgba(3,60,90,0.06); }
+
+  h1 { font-size: 36px; margin: 6px 0 8px; text-align:center; text-shadow: 2px 2px rgba(0,119,170,0.08); }
+  p.lead { text-align:center; margin: 6px 0 12px; color: var(--muted); font-weight: 600; }
+
+  /* ---------- Buttons ---------- */
+  .btn { border: none; border-radius: 10px; padding: 10px 18px; cursor: pointer; font-size:16px; }
+  .btn-primary { background: var(--btn); color: #003047; box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+  .btn-ghost { background: white; color: var(--accent); border: 2px solid var(--accent); }
+  .btn:active { transform: translateY(1px); }
+
+  /* ---------- Layout sections ---------- */
+  #menuMain, #levelSelect, #howTo, #gameArea { width:100%; height: calc(100vh - 36px); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; }
+  #howTo .card { width: 360px; max-width: 92%; }
+
+  /* ---------- Level grid ---------- */
+  #levelGrid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:12px; }
+  .level-button { width:64px; height:54px; border-radius:10px; background:#fff8d6; border: 2px solid #ffb400; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .level-button.locked { background:#eee; color:#999; border-color:#ddd; cursor:not-allowed; }
+
+  /* ---------- Game area ---------- */
+  #gameWrap { width:100%; display:flex; justify-content:center; margin-top:12px; }
+  #gameCanvas { border-radius:12px; border: 4px solid var(--accent); background: linear-gradient(#9fe6ff,#64bfe4); width: 980px; max-width: calc(100% - 24px); height: 560px; display:block; }
+  #hud { position: absolute; top: 18px; left: 0; right: 0; pointer-events: none; display:flex; justify-content:center; }
+  #hud .center { pointer-events: auto; display:inline-flex; gap:12px; background: var(--panel); padding:10px 14px; border-radius:12px; font-weight:bold; align-items:center; }
+  #lives { position: absolute; left: 18px; top: 18px; pointer-events: none; font-size:20px; background: var(--panel); padding:8px 12px; border-radius:10px; }
+  #menuBtn { position: absolute; right: 14px; top: 14px; pointer-events: auto; background: var(--panel); padding:8px 10px; border-radius:10px; cursor:pointer; z-index: 40; }
+
+  #dropdown { position: absolute; right: 14px; top: 56px; background: var(--panel); padding: 8px; border-radius:10px; z-index: 45; display:none; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+  #dropdown button { display:block; width:180px; margin:6px 0; padding:8px; border-radius:8px; border:none; background: var(--btn); }
+
+  /* ---------- Overlays ---------- */
+  .overlay { position: fixed; left: 50%; transform: translateX(-50%); z-index: 80; text-align:center; }
+  #questionBox { top: 50%; transform: translate(-50%,-50%); width: 360px; max-width: 92%; background: rgba(0,0,0,0.78); color: white; padding:18px; border-radius:12px; display:none; }
+  #questionBox .options { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+  .opt { background: var(--btn); border:none; padding:10px; border-radius:10px; font-size:18px; cursor:pointer; }
+  #feedback { top: 40%; width: 320px; display:none; background: var(--panel); padding:12px; border-radius:10px; }
+
+  #endBox { top: 36%; width: 420px; max-width: 94%; display:none; background: var(--panel); padding:16px; border-radius:12px; }
+
+  /* ---------- Controls (mobile) ---------- */
+  #controlsBar { position: fixed; left: 0; right: 0; bottom: 18px; display:flex; justify-content:center; gap:28px; pointer-events: none; z-index:60; }
+  .control { pointer-events: auto; background: var(--btn); border:none; border-radius: 50%; width:78px; height:78px; font-size:28px; box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+  .control:active { transform: translateY(1px); }
+
+  /* ---------- HowTo ---------- */
+  #howToNote { width:380px; max-width:94%; display:none; position: fixed; left:50%; top:50%; transform: translate(-50%,-50%); z-index:90; background:var(--panel); padding:14px; border-radius:12px; }
+
+  /* responsive tweaks */
+  @media (max-width: 980px){
+    #gameCanvas { width: 92vw; height: 52vh; }
+    .control { width:64px; height:64px; font-size:22px; }
+    #hud .center { padding:8px 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- MAIN MENU -->
+  <section id="menuMain" class="card" style="display:flex; align-items:center; justify-content:center; flex-direction:column;">
+    <h1>Petualangan Memancing Cerdas 🎣</h1>
+    <p class="lead">Ayo belajar sambil memancing! Jadilah anak cerdas, sabar, dan penuh semangat!</p>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button id="startBtn" class="btn btn-primary">Mulai Game</button>
+      <button id="howBtn" class="btn btn-ghost">Cara Main</button>
+    </div>
+  </section>
+
+  <!-- LEVEL SELECT -->
+  <section id="levelSelect" class="card" style="display:none; flex-direction:column; align-items:center;">
+    <h2>Pilih Level</h2>
+    <div id="levelGrid"></div>
+    <div style="margin-top:12px;"><button id="backBtn" class="btn btn-ghost">Kembali</button></div>
+  </section>
+
+  <!-- HOW TO POPUP -->
+  <div id="howToNote" class="card" role="dialog" aria-modal="true">
+    <h3>Cara Bermain</h3>
+    <ol style="text-align:left; margin-top:8px; line-height:1.5;">
+      <li>Gerakkan kail: tombol ⬅️ ➡️ atau tombol layar (tahan untuk gerak halus).</li>
+      <li>Tekan spasi atau tombol 🎣 untuk menurunkan kail.</li>
+      <li>Jika kail mengenai ikan: jawab soal pilihan ganda — benar → ikan masuk, salah → ikan turun dan berenang lagi, nyawa -1.</li>
+      <li>Di pojok kanan ada ☰ untuk jeda & menu.</li>
+    </ol>
+    <div style="text-align:center; margin-top:10px;"><button id="closeHow" class="btn btn-primary">Tutup</button></div>
+  </div>
+
+  <!-- GAME AREA -->
+  <section id="gameArea" style="display:none; position:relative;">
+    <div id="menuBtn" title="Menu ☰">☰</div>
+    <div id="dropdown">
+      <button id="menuRetry">🔁 Coba Lagi</button>
+      <button id="menuBack">🏠 Kembali ke Menu</button>
+    </div>
+
+    <div id="lives" aria-live="polite">❤️ ❤️ ❤️</div>
+
+    <div id="hud">
+      <div class="center">
+        <div>⏱️ <span id="timeDisplay">02:00</span></div>
+        <div style="padding-left:8px;">🎯 <span id="caughtDisplay">0</span>/<span id="targetDisplay">0</span></div>
+      </div>
+    </div>
+
+    <div id="gameWrap">
+      <canvas id="gameCanvas" width="980" height="560"></canvas>
+    </div>
+
+    <div id="controlsBar">
+      <button id="leftControl" class="control" aria-label="Left">⬅️</button>
+      <button id="fishControl" class="control" aria-label="Fish">🎣</button>
+      <button id="rightControl" class="control" aria-label="Right">➡️</button>
+    </div>
+  </section>
+
+  <!-- QUESTION BOX -->
+  <div id="questionBox" class="overlay" role="dialog" aria-modal="true">
+    <div style="font-size:20px; font-weight:700; color:white;" id="qText"></div>
+    <div class="options" id="qOptions" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div id="feedback" class="overlay"></div>
+
+  <!-- END BOX -->
+  <div id="endBox" class="overlay" style="display:none;">
+    <h2 id="endTitle"></h2>
+    <p id="endMsg"></p>
+    <div id="endStars" style="font-size:28px; color:gold; margin:8px;"></div>
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:8px;">
+      <button id="nextLevelBtn" class="btn btn-primary">Lanjut Level</button>
+      <button id="retryLevelBtn" class="btn btn-primary">Coba Lagi</button>
+      <button id="backToMenuBtn" class="btn btn-ghost">Kembali ke Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Petualangan Memancing Cerdas
+   Versi lengkap — seluruh logika game ada di file ini
+   ============================================================ */
+
+/* ----------------------
+   Globals & DOM refs
+   ---------------------- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const startBtn = document.getElementById('startBtn');
+const howBtn = document.getElementById('howBtn');
+const howToNote = document.getElementById('howToNote');
+const closeHow = document.getElementById('closeHow');
+
+const menuMain = document.getElementById('menuMain');
+const levelSelect = document.getElementById('levelSelect');
+const levelGrid = document.getElementById('levelGrid');
+const backBtn = document.getElementById('backBtn');
+
+const gameArea = document.getElementById('gameArea');
+const menuBtn = document.getElementById('menuBtn');
+const dropdown = document.getElementById('dropdown');
+const menuRetry = document.getElementById('menuRetry');
+const menuBack = document.getElementById('menuBack');
+
+const livesEl = document.getElementById('lives');
+const timeDisplay = document.getElementById('timeDisplay');
+const caughtDisplay = document.getElementById('caughtDisplay');
+const targetDisplay = document.getElementById('targetDisplay');
+
+const leftControl = document.getElementById('leftControl');
+const rightControl = document.getElementById('rightControl');
+const fishControl = document.getElementById('fishControl');
+
+const qBox = document.getElementById('questionBox');
+const qText = document.getElementById('qText');
+const qOptions = document.getElementById('qOptions');
+
+const feedbackEl = document.getElementById('feedback');
+const endBox = document.getElementById('endBox');
+const endTitle = document.getElementById('endTitle');
+const endMsg = document.getElementById('endMsg');
+const endStars = document.getElementById('endStars');
+const nextLevelBtn = document.getElementById('nextLevelBtn');
+const retryLevelBtn = document.getElementById('retryLevelBtn');
+const backToMenuBtn = document.getElementById('backToMenuBtn');
+
+/* ----------------------
+   Game state
+   ---------------------- */
+let unlockedLevel = Number(localStorage.getItem('unlockedLevel') || 1);
+let currentLevel = 1;
+let fishes = [];            // array of fish objects
+let hook = null;            // hook object
+let caughtCount = 0;
+let targetCount = 0;
+let lives = 3;
+let timeLeft = 120;         // seconds
+let timerId = null;
+let running = false;
+let pausedByMenu = false;
+let answering = false;
+let hiDPIratio = Math.max(1, window.devicePixelRatio || 1);
+
+/* Movement flags for hold-smooth */
+let leftHeld = false, rightHeld = false;
+
+/* ----------------------
+   Helpers
+   ---------------------- */
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+function formatMMSS(s){ const m = Math.floor(s/60); const sec = s%60; return (m<10?'0'+m:m)+':'+(sec<10?'0'+sec:sec); }
+
+/* ----------------------
+   Canvas init (HiDPI)
+   ---------------------- */
+function initCanvas(){
+  const ratio = hiDPIratio;
+  const cssW = canvas.clientWidth || 980;
+  const cssH = canvas.clientHeight || 560;
+  canvas.width = Math.round(cssW * ratio);
+  canvas.height = Math.round(cssH * ratio);
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+initCanvas();
+window.addEventListener('resize', () => { initCanvas(); });
+
+/* ----------------------
+   Spawn fishes
+   ---------------------- */
+function spawnFishes(level){
+  fishes = [];
+  targetCount = 6 + (level - 1) * 2;
+  for(let i=0;i<targetCount;i++){
+    fishes.push({
+      id: i+1,
+      x: rand(80, canvas.width/hiDPIratio - 80),
+      y: rand(160, canvas.height/hiDPIratio - 140),
+      size: rand(18, 36),
+      speed: Math.random()*0.7 + 0.3,
+      dir: Math.random() < 0.5 ? -1 : 1,
+      color: `hsl(${rand(0,360)}, 70%, ${rand(60,80)}%)`,
+      visible: true,
+      caught: false,
+      bobOffset: Math.random()*1000
+    });
+  }
+}
+
+/* ----------------------
+   Hook object
+   ---------------------- */
+function createHook(){
+  const cw = canvas.width/hiDPIratio;
+  return {
+    x: cw/2 - 6,
+    y: 6,
+    w: 10,
+    h: 18,
+    isFalling: false,
+    dy: 0,
+    caughtFish: null
+  };
+}
+
+/* ----------------------
+   Draw scene (background, seabed, corals)
+   ---------------------- */
+function drawBackground(){
+  const W = canvas.width/hiDPIratio, H = canvas.height/hiDPIratio;
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#9fe8ff'); g.addColorStop(1,'#3ea0c0');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  // seabed
+  ctx.fillStyle = '#f2c07a';
+  ctx.beginPath();
+  ctx.moveTo(0, H - 30);
+  for(let i=0;i<W;i+=60){
+    ctx.quadraticCurveTo(i+30, H - 60 + Math.sin(i/60 + Date.now()/900)*8, i+60, H - 30);
+  }
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.fill();
+
+  // corals / rocks subtle
+  for(let i=0;i<6;i++){
+    const rx = (i*130 + (Date.now()/80 % 130)) % W;
+    ctx.fillStyle = `rgba(255,140,120,0.08)`;
+    ctx.beginPath();
+    ctx.ellipse(rx, H-28, 30, 14, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // soft bubbles
+  for(let i=0;i<4;i++){
+    const bx = (Date.now()/30 + i*220) % W;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.ellipse(bx, 60 + i*26, 60, 10, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+/* ----------------------
+   Draw a fish (realistic body + tail + eye)
+   ---------------------- */
+function drawFish(f){
+  if(!f.visible) return;
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  if(f.dir < 0) ctx.scale(-1,1);
+
+  // body
+  ctx.beginPath();
+  ctx.ellipse(0, 0, f.size, f.size*0.6, 0, 0, Math.PI*2);
+  ctx.fillStyle = f.color;
+  ctx.fill();
+
+  // tail (triangle)
+  ctx.beginPath();
+  ctx.moveTo(-f.size, 0);
+  ctx.lineTo(-f.size - 10, -f.size*0.45);
+  ctx.lineTo(-f.size - 10, f.size*0.45);
+  ctx.closePath();
+  ctx.fill();
+
+  // eye
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(f.size*0.45, -f.size*0.12, Math.max(2, f.size/8), 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = 'black';
+  ctx.beginPath();
+  ctx.arc(f.size*0.45, -f.size*0.12, Math.max(1, f.size/16), 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* ----------------------
+   Draw hook & line
+   ---------------------- */
+function drawHook(){
+  const H = canvas.height/hiDPIratio;
+  // line
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(hook.x + hook.w/2, 0);
+  ctx.lineTo(hook.x + hook.w/2, hook.y);
+  ctx.stroke();
+
+  // hook head
+  ctx.fillStyle = '#bbb';
+  ctx.fillRect(hook.x, hook.y, hook.w, hook.h);
+
+  // little curve under hook
+  ctx.strokeStyle = '#666';
+  ctx.beginPath();
+  ctx.moveTo(hook.x - 4, hook.y + hook.h);
+  ctx.quadraticCurveTo(hook.x + 0, hook.y + hook.h + 8, hook.x + 4, hook.y + hook.h);
+  ctx.stroke();
+}
+
+/* ----------------------
+   Update fishes positions
+   ---------------------- */
+function updateFishes(dt){
+  fishes.forEach(f => {
+    if(!f.visible) return;
+    if(!f.caught){
+      // horizontal
+      f.x += f.dir * f.speed * (1 + Math.sin(Date.now()/1000 + f.bobOffset)*0.1);
+      // gentle bob up/down
+      f.y += Math.sin((Date.now()/700) + f.x / 90) * 0.08;
+      // bounds
+      if(f.x < f.size + 10) f.dir = 1;
+      if(f.x > canvas.width/hiDPIratio - f.size - 10) f.dir = -1;
+    } else {
+      // if caught: follow hook (will be handled when drawing)
+      f.x = hook.x + hook.w/2;
+      f.y = hook.y + hook.h + 6;
+    }
+  });
+}
+
+/* ----------------------
+   Check collisions (hook hitting fish)
+   ---------------------- */
+function checkCollision(){
+  if(!hook.isFalling || hook.caughtFish || answering) return;
+  for(const f of fishes){
+    if(!f.visible || f.caught) continue;
+    const dx = Math.abs(hook.x - f.x);
+    const dy = Math.abs(hook.y - f.y);
+    if(dx < f.size && dy < f.size * 0.9){
+      // catch it
+      f.caught = true;
+      hook.caughtFish = f;
+      // start pulling up gently
+      hook.dy = -4; // negative => go up
+      // ensure it won't be immediately reset
+      break;
+    }
+  }
+}
+
+/* ----------------------
+   Hook horizontal update (from controls)
+   ---------------------- */
+function updateHookHorizontal(){
+  if(leftHeld) hook.x = clamp(hook.x - 4, 16, canvas.width/hiDPIratio - 16 - hook.w);
+  if(rightHeld) hook.x = clamp(hook.x + 4, 16, canvas.width/hiDPIratio - 16 - hook.w);
+}
+
+/* ----------------------
+   Hook vertical update & state machine
+   Behavior:
+   - When dropped: isFalling = true, dy positive (down)
+   - On collision: caughtFish set, change dy to negative to pull up
+   - While caught and rising: continue until near top -> show question (answering)
+   - If reach bottom miss: reset
+   ---------------------- */
+function updateHookVertical(){
+  const H = canvas.height/hiDPIratio;
+  if(hook.isFalling){
+    // if fish attached, we want to pull up (dy negative)
+    if(hook.caughtFish){
+      // ensure upward motion (dy negative). If current dy is positive, flip to negative
+      if(hook.dy > 0) hook.dy = -3.5;
+      // rise smoothly
+      hook.y += hook.dy;
+      // clamp top: when reach area near top, trigger question
+      if(hook.y <= 30){
+        hook.y = 30;
+        // stop movement and show question (if not already)
+        hook.isFalling = false;
+        // showQuestion will set 'answering' true
+        if(!answering && hook.caughtFish){
+          showQuestion(hook.caughtFish);
+        }
+      }
+    } else {
+      // falling (no fish attached)
+      hook.dy = Math.min(hook.dy + 0.14, 6); // gravity-ish
+      hook.y += hook.dy;
+      // if gone too low -> missed -> reset
+      if(hook.y > H - 30){
+        // missed, reset hook
+        hook.isFalling = false;
+        hook.y = 6;
+        hook.dy = 0;
+        hook.caughtFish = null;
+      }
+      // if collision occurs, checkCollision will set caughtFish
+      checkCollision();
+    }
+  } else {
+    // not falling and not answering: gently reset to top y=6 when needed
+    if(!answering && !hook.caughtFish && hook.y > 6){
+      hook.y = Math.max(6, hook.y - 1.2); // settle up
+    }
+  }
+}
+
+/* ----------------------
+   Main render loop
+   ---------------------- */
+let lastFrame = performance.now();
+function loop(now){
+  if(!running) return;
+  const dt = now - lastFrame;
+  lastFrame = now;
+
+  // clear
+  const W = canvas.width/hiDPIratio, H = canvas.height/hiDPIratio;
+  ctx.clearRect(0,0,W,H);
+
+  // draw
+  drawBackground();
+
+  // update & draw fishes
+  updateFishes(dt);
+  fishes.forEach(drawFish);
+
+  // update hook control
+  updateHookHorizontal();
+  updateHookVertical();
+
+  // draw hook on top
+  drawHook();
+
+  // draw fish attached (drawn by updateFishes when caught)
+  // (attached fish will be drawn in drawFish since caught -> x,y are updated there)
+
+  requestAnimationFrame(loop);
+}
+
+/* ----------------------
+   Controls binding (touch + mouse + keyboard)
+   Smooth hold implemented via flags leftHeld/rightHeld
+   ---------------------- */
+function bindControls(){
+  // left control
+  leftControl.addEventListener('touchstart', e => { e.preventDefault(); leftHeld = true; });
+  leftControl.addEventListener('touchend', e => { e.preventDefault(); leftHeld = false; });
+  leftControl.addEventListener('mousedown', ()=> leftHeld = true);
+  leftControl.addEventListener('mouseup', ()=> leftHeld = false);
+  leftControl.addEventListener('mouseleave', ()=> leftHeld = false);
+
+  // right control
+  rightControl.addEventListener('touchstart', e => { e.preventDefault(); rightHeld = true; });
+  rightControl.addEventListener('touchend', e => { e.preventDefault(); rightHeld = false; });
+  rightControl.addEventListener('mousedown', ()=> rightHeld = true);
+  rightControl.addEventListener('mouseup', ()=> rightHeld = false);
+  rightControl.addEventListener('mouseleave', ()=> rightHeld = false);
+
+  // fish/drop
+  fishControl.addEventListener('touchstart', e => { e.preventDefault(); dropHook(); });
+  fishControl.addEventListener('mousedown', e => { e.preventDefault(); dropHook(); });
+  fishControl.addEventListener('click', dropHook);
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    if(e.key === 'ArrowLeft') leftHeld = true;
+    if(e.key === 'ArrowRight') rightHeld = true;
+    if(e.code === 'Space' || e.key === ' ') { e.preventDefault(); dropHook(); }
+  });
+  document.addEventListener('keyup', e => {
+    if(e.key === 'ArrowLeft') leftHeld = false;
+    if(e.key === 'ArrowRight') rightHeld = false;
+  });
+
+  // canvas click for desktop: drop hook (optional)
+  canvas.addEventListener('click', (e) => {
+    // prevent accidental click when question visible
+    if(!answering) dropHook();
+  });
+}
+
+/* ----------------------
+   Drop hook (start falling)
+   ---------------------- */
+function dropHook(){
+  if(!running || pausedByMenu || answering) return;
+  if(!hook.isFalling && !hook.caughtFish){
+    hook.isFalling = true;
+    hook.dy = 2.6;
+    hook.caughtFish = null;
+  } else if(!hook.isFalling && hook.caughtFish && !answering){
+    // if somehow attached but not falling, pull up
+    hook.isFalling = true;
+    hook.dy = -3.5;
+  }
+}
+
+/* ----------------------
+   Questions generation & UI
+   ---------------------- */
+function makeQuestion(){
+  const max = Math.max(3, 4 + currentLevel * 2);
+  let a = rand(1, Math.min(6, max));
+  let b = rand(1, Math.min(6, max));
+  let op = Math.random() < 0.5 ? '+' : '-';
+  if(op === '-' && b > a) [a,b] = [b,a];
+  const ans = op === '+' ? a + b : a - b;
+  // options: correct, +1, -1 unique
+  let opts = [ans];
+  if(!opts.includes(ans+1)) opts.push(ans+1);
+  if(!opts.includes(Math.max(0, ans-1))) opts.push(Math.max(0, ans-1));
+  // shuffle
+  for(let i=opts.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [opts[i],opts[j]]=[opts[j],opts[i]]; }
+  return { q: `${a} ${op} ${b} = ?`, ans, opts };
+}
+
+function showQuestion(fish){
+  answering = true;
+  qBox.style.display = 'block';
+  qText.textContent = ' ' + ' ' + ''; // clear quickly
+  const Q = makeQuestion();
+  qText.textContent = Q.q;
+  qOptions.innerHTML = '';
+  Q.opts.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.textContent = opt;
+    b.addEventListener('click', () => submitAnswer(opt, Q.ans, fish));
+    qOptions.appendChild(b);
+  });
+}
+
+/* ----------------------
+   Submit answer handling
+   - correct => fish removed, caughtCount++ and continue
+   - wrong => reduce lives, animate fish fall and resume swim
+   ---------------------- */
+function submitAnswer(selected, correct, fish){
+  qBox.style.display = 'none';
+  const fb = feedbackEl;
+  fb.style.display = 'block';
+  fb.textContent = selected === correct ? '🎉 Selamat! Jawaban benar!' : '😅 Mohon maaf, jawaban salah! Silakan coba lagi.';
+  if(selected === correct){
+    // remove fish (set invisible)
+    fish.visible = false;
+    fish.caught = false;
+    hook.caughtFish = null;
+    caughtCount++;
+    caughtDisplay.textContent = caughtCount;
+    // small delay then hide feedback and continue
+    setTimeout(()=>{ fb.style.display='none'; answering = false; checkWin(); }, 1100);
+  } else {
+    // wrong: decrease lives, animate fish falling then resume
+    lives = Math.max(0, lives - 1);
+    updateLivesUI();
+    // animate fish fall: we temporarily release fish and move it downward
+    fish.caught = false;
+    hook.caughtFish = null;
+    // animate downward until bottom then reposition
+    const fallInt = setInterval(()=>{
+      fish.y += 6;
+      if(fish.y > canvas.height/hiDPIratio - 40){
+        clearInterval(fallInt);
+        // respawn somewhere
+        fish.y = rand(160, canvas.height/hiDPIratio - 140);
+        fish.x = rand(80, canvas.width/hiDPIratio - 80);
+        fish.dir = Math.random() < 0.5 ? -1 : 1;
+      }
+    }, 30);
+    setTimeout(()=>{ fb.style.display='none'; answering = false; if(lives <= 0) endLevel(false, true); }, 1200);
+  }
+}
+
+/* ----------------------
+   UI helpers
+   ---------------------- */
+function updateLivesUI(){
+  livesEl.textContent = Array.from({length: Math.max(0, lives)}).map(()=> '❤️').join(' ');
+}
+function updateHUD(){
+  timeDisplay.textContent = formatMMSS(timeLeft);
+  caughtDisplay.textContent = caughtCount;
+  targetDisplay.textContent = targetCount;
+}
+
+/* ----------------------
+   Timer logic
+   ---------------------- */
+function startTimer(){
+  clearInterval(timerId);
+  timerId = setInterval(()=>{
+    if(!running || pausedByMenu) return;
+    timeLeft--;
+    updateHUD();
+    if(timeLeft <= 0){
+      clearInterval(timerId);
+      endLevel(false, false);
+    }
+  }, 1000);
+}
+function stopTimer(){ clearInterval(timerId); }
+
+/* ----------------------
+   Win / Lose / Endlevel
+   ---------------------- */
+function checkWin(){
+  if(caughtCount >= targetCount){
+    endLevel(true, false);
+  }
+}
+function endLevel(success, outOfLives){
+  running = false;
+  stopTimer();
+  endBox.style.display = 'block';
+  if(success){
+    endTitle.textContent = '🎉 Hebat! Level Selesai!';
+    endMsg.textContent = `Kamu menangkap semua ikan pada Level ${currentLevel}!`;
+    endStars.textContent = '⭐ ⭐ ⭐';
+    // unlock next
+    if(currentLevel >= unlockedLevel && unlockedLevel < 10){
+      unlockedLevel = currentLevel + 1;
+      localStorage.setItem('unlockedLevel', unlockedLevel);
+    }
+  } else {
+    if(outOfLives){
+      endTitle.textContent = '😢 Nyawa Habis';
+      endMsg.textContent = 'Nyawamu habis — ayo coba lagi dari level 1!';
+      endStars.textContent = '';
+    } else {
+      endTitle.textContent = '⏱️ Waktu Habis';
+      endMsg.textContent = 'Waktu habis — ayo coba lagi!';
+      endStars.textContent = '';
+    }
+  }
+
+  // configure buttons
+  nextLevelBtn.onclick = () => {
+    endBox.style.display = 'none';
+    if(success && currentLevel < 10) startLevel(currentLevel + 1);
+    else openLevelSelect();
+  };
+  retryLevelBtn.onclick = () => {
+    endBox.style.display = 'none';
+    if(outOfLives) startLevel(1);
+    else startLevel(currentLevel);
+  };
+  backToMenuBtn.onclick = () => {
+    endBox.style.display = 'none';
+    openLevelSelect();
+  };
+}
+
+/* ----------------------
+   Menu & level selection
+   ---------------------- */
+function openLevelSelect(){
+  stopTimer();
+  running = false;
+  menuMain.style.display = 'none';
+  gameArea.style.display = 'none';
+  levelSelect.style.display = 'flex';
+  levelGrid.innerHTML = '';
+  for(let i=1;i<=10;i++){
+    const b = document.createElement('button');
+    b.className = 'level-button' + (i>unlockedLevel ? ' locked' : '');
+    b.textContent = i;
+    if(i <= unlockedLevel) {
+      b.addEventListener('click', () => startLevel(i));
+    } else {
+      b.disabled = true;
+    }
+    levelGrid.appendChild(b);
+  }
+}
+function startLevel(lv){
+  // reset visuals & states and start
+  currentLevel = lv;
+  levelSelect.style.display = 'none';
+  menuMain.style.display = 'none';
+  gameArea.style.display = 'block';
+  qBox.style.display = 'none';
+  endBox.style.display = 'none';
+  dropdown.style.display = 'none';
+  endStars.textContent = '';
+
+  // initialize
+  spawnFishes(lv);
+  hook = createHook();
+  caughtCount = 0;
+  lives = 3;
+  timeLeft = 120;
+  updateLivesUI();
+  updateHUD();
+
+  // start main loop & timer
+  running = true;
+  pausedByMenu = false;
+  answering = false;
+
+  lastFrame = performance.now();
+  startTimer();
+  requestAnimationFrame(loop);
+}
+
+/* ----------------------
+   Pause menu handling (menuBtn)
+   ---------------------- */
+menuBtn.addEventListener('click', () => {
+  // toggle dropdown and pause/resume
+  if(dropdown.style.display === 'block'){
+    dropdown.style.display = 'none';
+    if(pausedByMenu){
+      pausedByMenu = false;
+      running = true;
+      lastFrame = performance.now();
+      requestAnimationFrame(loop);
+    }
+  } else {
+    dropdown.style.display = 'block';
+    if(running){
+      pausedByMenu = true;
+      running = false;
+    }
+  }
+});
+menuRetry.addEventListener('click', () => {
+  dropdown.style.display = 'none';
+  startLevel(currentLevel);
+});
+menuBack.addEventListener('click', () => {
+  dropdown.style.display = 'none';
+  openLevelSelect();
+});
+
+/* ----------------------
+   Simple feedback helper
+   ---------------------- */
+function showTemporaryMessage(text, ms = 1200){
+  feedbackEl.style.display = 'block';
+  feedbackEl.textContent = text;
+  setTimeout(()=> feedbackEl.style.display = 'none', ms);
+}
+
+/* ----------------------
+   UI bindings for menu/start/howto/back
+   ---------------------- */
+startBtn.addEventListener('click', openLevelSelect);
+howBtn.addEventListener('click', ()=> { howToNote.style.display = 'block'; });
+closeHow.addEventListener('click', ()=> { howToNote.style.display = 'none'; });
+backBtn.addEventListener('click', ()=> { levelSelect.style.display = 'none'; menuMain.style.display = 'flex'; });
+
+/* ----------------------
+   End box & small bindings
+   ---------------------- */
+nextLevelBtn.addEventListener('click', ()=> {}); // assigned in endLevel
+retryLevelBtn.addEventListener('click', ()=> {});
+backToMenuBtn.addEventListener('click', ()=> {});
+
+/* ----------------------
+   Controls bindings
+   ---------------------- */
+bindControls();
+
+/* ----------------------
+   Init UI + default show main menu
+   ---------------------- */
+(function initUI(){
+  menuMain.style.display = 'flex';
+  levelSelect.style.display = 'none';
+  gameArea.style.display = 'none';
+  updateLivesUI();
+  updateHUD();
+})();
+
+/* =======================
+   End of script
+   ======================= */
+</script>
+</body>
+</html>
